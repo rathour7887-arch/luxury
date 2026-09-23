@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>NOCTURNE — A Table After Dark</title>
+<meta name="description" content="NOCTURNE. Fourteen seats. One seating a night. A nine-course tasting menu staged after dark." />
+
+<!-- Tailwind (CDN) -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          noir: '#0a0908',
+          char: '#141210',
+          gold: '#b08d57',
+          goldlight: '#ddc191',
+          wine: '#3c0f12',
+          ivory: '#ede6da',
+          mist: '#8c8577',
+        },
+        fontFamily: {
+          display: ['"Fraunces"', 'serif'],
+          sans: ['"Inter"', 'sans-serif'],
+        },
+      },
+    },
+  };
+</script>
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+<!-- GSAP -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+
+<!-- Three.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<style>
+  :root{
+    --noir:#0a0908;
+    --char:#141210;
+    --gold:#b08d57;
+    --gold-light:#ddc191;
+    --wine:#3c0f12;
+    --ivory:#ede6da;
+    --mist:#8c8577;
+  }
+
+  *{ box-sizing:border-box; }
+
+  html{ scroll-behavior:smooth; }
+
+  body{
+    background:var(--noir);
+    color:var(--ivory);
+    font-family:'Inter', sans-serif;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+    cursor:none;
+  }
+
+  @media (pointer:coarse), (hover:none){
+    body{ cursor:auto; }
+    #cursor-dot, #cursor-ring{ display:none !important; }
+  }
+
+  ::selection{ background:var(--gold); color:var(--noir); }
+
+  ::-webkit-scrollbar{ width:10px; }
+  ::-webkit-scrollbar-track{ background:var(--noir); }
+  ::-webkit-scrollbar-thumb{ background:#2a251f; border-radius:0; }
+  ::-webkit-scrollbar-thumb:hover{ background:var(--gold); }
+
+  a, button{ -webkit-tap-highlight-color:transparent; }
+
+  :focus-visible{
+    outline:1px solid var(--gold);
+    outline-offset:4px;
+  }
+
+  .font-display{ font-family:'Fraunces', serif; }
+
+  /* film grain */
+  .grain{
+    position:fixed; inset:0; z-index:60; pointer-events:none;
+    opacity:0.05; mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    background-size:140px 140px;
+  }
+
+  /* custom cursor */
+  #cursor-dot, #cursor-ring{
+    position:fixed; top:0; left:0; z-index:70; pointer-events:none;
+    border-radius:50%;
+    transform:translate(-50%,-50%);
+    will-change:transform;
+  }
+  #cursor-dot{
+    width:6px; height:6px; background:var(--gold-light);
+  }
+  #cursor-ring{
+    width:36px; height:36px; border:1px solid rgba(176,141,87,0.55);
+    transition:width .35s cubic-bezier(.16,1,.3,1), height .35s cubic-bezier(.16,1,.3,1), border-color .35s ease, background-color .35s ease;
+  }
+  #cursor-ring.is-active{
+    width:64px; height:64px; background:rgba(176,141,87,0.08); border-color:var(--gold-light);
+  }
+  #cursor-ring.is-active ~ #cursor-dot{ opacity:0; }
+
+  /* preloader */
+  #preloader{
+    position:fixed; inset:0; z-index:100; background:var(--noir);
+    display:flex; align-items:center; justify-content:center; flex-direction:column;
+  }
+  #preloader .pre-word{
+    font-family:'Fraunces', serif; font-style:italic; font-weight:400;
+    font-size:clamp(2rem,6vw,3.5rem); letter-spacing:0.02em; color:var(--ivory);
+    opacity:0.9;
+  }
+  #preloader .pre-bar{
+    margin-top:28px; width:180px; height:1px; background:rgba(237,230,218,0.15); position:relative; overflow:hidden;
+  }
+  #preloader .pre-bar-fill{
+    position:absolute; left:0; top:0; height:100%; width:0%; background:var(--gold);
+  }
+  #preloader .pre-curtain{
+    position:absolute; inset:0; background:var(--noir);
+  }
+
+  /* hero */
+  #hero{ position:relative; height:100svh; min-height:560px; width:100%; overflow:hidden; }
+  #hero-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; }
+
+  .hero-watermark{
+    position:absolute; left:50%; top:52%; transform:translate(-50%,-50%);
+    font-family:'Fraunces', serif; font-weight:300;
+    font-size:clamp(6rem, 26vw, 24rem);
+    color:transparent;
+    -webkit-text-stroke:1px rgba(176,141,87,0.10);
+    letter-spacing:0.02em;
+    white-space:nowrap; pointer-events:none; user-select:none;
+    z-index:1;
+  }
+
+  .hero-content{ position:relative; z-index:5; }
+
+  .char{ display:inline-block; will-change:transform, opacity; }
+
+  .line-mask{ overflow:hidden; display:block; }
+  .line-mask .line-inner{ display:block; transform:translateY(110%); }
+
+  /* marquee */
+  .marquee-wrap{
+    overflow:hidden; white-space:nowrap; border-top:1px solid rgba(176,141,87,0.18); border-bottom:1px solid rgba(176,141,87,0.18);
+  }
+  .marquee-track{ display:inline-flex; align-items:center; will-change:transform; }
+  .marquee-item{
+    font-family:'Fraunces', serif; font-style:italic; font-weight:400;
+    font-size:clamp(1.1rem, 2.6vw, 2rem); color:var(--ivory); padding:1.4rem 2.2rem;
+    white-space:nowrap;
+  }
+  .marquee-div{ width:6px; height:6px; border-radius:50%; background:var(--gold); opacity:0.7; flex:none; }
+
+  /* menu */
+  .menu-row{ clip-path:inset(0 100% 0 0); }
+  .menu-row.is-open{ clip-path:inset(0 0% 0 0); }
+
+  .course-num{ font-variant-numeric:tabular-nums; }
+
+  .preview-panel{
+    position:relative; overflow:hidden;
+    background:
+      radial-gradient(120% 140% at 20% 15%, rgba(176,141,87,0.16), transparent 55%),
+      linear-gradient(160deg, #1c1712, #0a0908 70%);
+  }
+  .preview-swatch{
+    position:absolute; inset:0; opacity:0; transition:opacity .6s ease;
+  }
+  .preview-swatch.is-active{ opacity:1; }
+  .preview-panel::after{
+    content:''; position:absolute; inset:0;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    opacity:0.06; mix-blend-mode:overlay; pointer-events:none;
+  }
+
+  .parallax-img{ will-change:transform; }
+
+  .btn-line{
+    position:relative; display:inline-block; padding-bottom:6px;
+  }
+  .btn-line::after{
+    content:''; position:absolute; left:0; bottom:0; width:100%; height:1px; background:var(--gold);
+    transform:scaleX(0.3); transform-origin:left; transition:transform .5s cubic-bezier(.16,1,.3,1);
+  }
+  .btn-line:hover::after{ transform:scaleX(1); }
+
+  .nav-link{ position:relative; }
+  .nav-link::after{
+    content:''; position:absolute; left:0; bottom:-4px; width:0%; height:1px; background:var(--gold);
+    transition:width .4s cubic-bezier(.16,1,.3,1);
+  }
+  .nav-link:hover::after{ width:100%; }
+
+  @media (prefers-reduced-motion: reduce){
+    html{ scroll-behavior:auto; }
+    .line-mask .line-inner{ transform:none; }
+    .menu-row{ clip-path:none; }
+  }
+</style>
+</head>
+
+<body class="bg-noir text-ivory selection:bg-gold">
+
+<div class="grain"></div>
+<div id="cursor-ring"></div>
+<div id="cursor-dot"></div>
+
+<div id="preloader">
+  <div class="pre-word">NOCTURNE</div>
+  <div class="pre-bar"><div class="pre-bar-fill" id="pre-bar-fill"></div></div>
+  <div class="pre-curtain" id="pre-curtain"></div>
+</div>
+
+<!-- NAV -->
+<header class="fixed top-0 left-0 w-full z-40 mix-blend-difference">
+  <div class="max-w-[1400px] mx-auto flex items-center justify-between px-6 md:px-10 py-6">
+    <a href="#hero" class="font-display italic text-xl tracking-wide text-ivory">Nocturne</a>
+    <nav class="hidden md:flex items-center gap-10 text-[13px] tracking-wide text-ivory/90">
+      <a href="#philosophy" class="nav-link">Philosophy</a>
+      <a href="#menu" class="nav-link">Tasting Menu</a>
+      <a href="#atelier" class="nav-link">The Chef</a>
+      <a href="#reserve" class="nav-link">Reserve</a>
+    </nav>
+    <a href="#reserve" class="btn-line text-[13px] tracking-wide">Request a Table</a>
+  </div>
+</header>
+
+<!-- HERO -->
+<section id="hero" class="flex items-center justify-center">
+  <canvas id="hero-canvas"></canvas>
+  <div class="hero-watermark" aria-hidden="true">NOCTURNE</div>
+
+  <div class="hero-content text-center px-6">
+    <p class="overflow-hidden mb-6">
+      <span class="hero-kicker inline-block text-[12px] md:text-[13px] tracking-[0.25em] text-mist opacity-0 translate-y-4">by invitation &amp; reservation only</span>
+    </p>
+    <h1 class="font-display italic font-normal leading-[0.9] text-[16vw] md:text-[9vw] text-ivory mb-8" id="hero-title">
+      <span class="char">N</span><span class="char">O</span><span class="char">C</span><span class="char">T</span><span class="char">U</span><span class="char">R</span><span class="char">N</span><span class="char">E</span>
+    </h1>
+    <p class="overflow-hidden">
+      <span class="hero-sub inline-block font-light text-sm md:text-base text-ivory/80 max-w-md mx-auto opacity-0 translate-y-4">
+        One table. One seating. One evening you will spend the rest of the year describing badly.
+      </span>
+    </p>
+
+    <div class="hero-scroll mt-16 flex flex-col items-center gap-3 opacity-0">
+      <span class="text-[11px] tracking-[0.2em] text-mist">DESCEND</span>
+      <span class="block w-px h-10 bg-gradient-to-b from-gold to-transparent"></span>
+    </div>
+  </div>
+</section>
+
+<!-- MARQUEE -->
+<div class="marquee-wrap bg-noir py-2 relative z-10">
+  <div class="marquee-track" id="marquee-track">
+    <div class="marquee-item">Michelin — Three Stars</div><span class="marquee-div"></span>
+    <div class="marquee-item">Nine Courses, After Dark</div><span class="marquee-div"></span>
+    <div class="marquee-item">Fourteen Seats a Night</div><span class="marquee-div"></span>
+    <div class="marquee-item">Cellar of Forgotten Vintages</div><span class="marquee-div"></span>
+    <div class="marquee-item">No Photography, No Exceptions</div><span class="marquee-div"></span>
+    <div class="marquee-item">Michelin — Three Stars</div><span class="marquee-div"></span>
+    <div class="marquee-item">Nine Courses, After Dark</div><span class="marquee-div"></span>
+    <div class="marquee-item">Fourteen Seats a Night</div><span class="marquee-div"></span>
+    <div class="marquee-item">Cellar of Forgotten Vintages</div><span class="marquee-div"></span>
+    <div class="marquee-item">No Photography, No Exceptions</div><span class="marquee-div"></span>
+  </div>
+</div>
+
+<!-- PHILOSOPHY -->
+<section id="philosophy" class="relative bg-noir py-32 md:py-48 px-6 md:px-10">
+  <div class="max-w-[1400px] mx-auto grid grid-cols-1 md:grid-cols-12 gap-10">
+    <div class="md:col-span-4">
+      <div class="sticky top-32">
+        <span class="block text-[12px] tracking-[0.25em] text-gold mb-4">Philosophy</span>
+        <p class="text-mist text-sm max-w-[26ch] leading-relaxed">
+          We are not in the business of feeding people. We are in the business of an hour they cannot get back — and would not want to.
+        </p>
+      </div>
+    </div>
+    <div class="md:col-span-8">
+      <p class="font-display italic font-light text-[7vw] md:text-[3.2vw] leading-[1.15] text-ivory">
+        <span class="line-mask"><span class="line-inner">We do not serve dinner.</span></span>
+        <span class="line-mask"><span class="line-inner">We stage a single, unrepeatable</span></span>
+        <span class="line-mask"><span class="line-inner">hour of your life — and ask that</span></span>
+        <span class="line-mask"><span class="line-inner">you arrive with nowhere else to be.</span></span>
+      </p>
+      <p class="mt-12 text-ivory/70 text-sm md:text-base leading-relaxed max-w-[52ch]">
+        There is no printed menu in advance, no substitutions, and no second seating. The room holds fourteen guests. The kitchen holds nine courses, decided the morning of, by what the coast, the forest, and the cellar have agreed to give up. Everything else — the light, the silence between courses, the pace of the evening — is composed, not served.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- MENU -->
+<section id="menu" class="relative bg-char py-32 md:py-40 px-6 md:px-10 border-t border-gold/10">
+  <div class="max-w-[1400px] mx-auto">
+    <div class="flex flex-col md:flex-row md:items-end md:justify-between mb-16 gap-4">
+      <div>
+        <span class="block text-[12px] tracking-[0.25em] text-gold mb-4">The Tasting Menu</span>
+        <h2 class="font-display italic text-4xl md:text-5xl text-ivory">Nine Courses, No Repeats</h2>
+      </div>
+      <div class="text-left md:text-right">
+        <p class="text-2xl font-display text-ivory">$385 <span class="text-mist text-base font-sans">per guest</span></p>
+        <p class="text-mist text-sm mt-1">Cellar pairing, $220 · vintage pairing, on request</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-16">
+      <div class="md:col-span-7" id="menu-list">
+        <!-- rows injected via markup below -->
+        <div class="menu-row border-t border-ivory/10 py-6 flex items-baseline gap-6 cursor-pointer" data-swatch="1">
+          <span class="course-num font-display italic text-gold text-lg w-8">I</span>
+          <div class="flex-1">
+            <h3 class="font-display text-xl md:text-2xl text-ivory">Amuse-Bouche</h3>
+            <p class="text-mist text-sm mt-1">Oyster, yuzu pearl, osetra snow</p>
+          </div>
+        </div>
+        <div class="menu-row border-t border-ivory/10 py-6 flex items-baseline gap-6 cursor-pointer" data-swatch="2">
+          <span class="course-num font-display italic text-gold text-lg w-8">II</span>
+          <div class="flex-1">
+            <h3 class="font-display text-xl md:text-2xl text-ivory">Prologue</h3>
+            <p class="text-mist text-sm mt-1">Hokkaido scallop, brown butter, sea grapes</p>
+          </div>
+        </div>
+        <div class="menu-row border-t border-ivory/10 py-6 flex items-baseline gap-6 cursor-pointer" data-swatch="3">
+          <span class="course-num font-display italic text-gold text-lg w-8">III</span>
+          <div class="flex-1">
+            <h3 class="font-display text-xl md:text-2xl text-ivory">The Turn</h3>
+            <p class="text-mist text-sm mt-1">Seared foie gras, quince, toasted brioche ash</p>
+          </div>
+        </div>
+        <div class="menu-row border-t border-ivory/10 py-6 flex items-baseline gap-6 cursor-pointer" data-swatch="4">
+          <span class="course-num font-display italic text-gold text-lg w-8">IV</span>
+          <div class="flex-1">
+            <h3 class="font-display text-xl md:text-2xl text-ivory">Depth</h3>
+            <p class="text-mist text-sm mt-1">Wagyu tartare, smoked bone marrow, black garlic</p>
+          </div>
+        </div>
+        <div class="menu-row border-t border-ivory/10 py-6 flex items-baseline gap-6 cursor-pointer" data-swatch="5">
+          <span class="course-num font-display italic text-gold text-lg w-8">V</span>
+          <div class="flex-1">
+            <h3 class="font-display text-xl md:text-2xl text-ivory">Ember</h3>
+            <p class="text-mist text-sm mt-1">Dry-aged duck breast, cherry lacquer, charred fig</p>
+          </div>
+        </div>
+        <div class="menu-row border-t border-ivory/10 py-6 flex items-baseline gap-6 cursor-pointer" data-swatch="6">
+          <span class="course-num font-display italic text-gold text-lg w-8">VI</span>
+          <div class="flex-1">
+            <h3 class="font-display text-xl md:text-2xl text-ivory">Origin</h3>
+            <p class="text-mist text-sm mt-1">Turbot, champagne beurre blanc, caviar</p>
+          </div>
+        </div>
+        <div class="menu-row border-t border-ivory/10 py-6 flex items-baseline gap-6 cursor-pointer" data-swatch="7">
+          <span class="course-num font-display italic text-gold text-lg w-8">VII</span>
+          <div class="flex-1">
+            <h3 class="font-display text-xl md:text-2xl text-ivory">Coda</h3>
+            <p class="text-mist text-sm mt-1">Seventy-two-hour wagyu, black truffle jus, potato three ways</p>
+          </div>
+        </div>
+        <div class="menu-row border-t border-ivory/10 py-6 flex items-baseline gap-6 cursor-pointer" data-swatch="8">
+          <span class="course-num font-display italic text-gold text-lg w-8">VIII</span>
+          <div class="flex-1">
+            <h3 class="font-display text-xl md:text-2xl text-ivory">Interlude</h3>
+            <p class="text-mist text-sm mt-1">Aged cheese selection, honeycomb, walnut</p>
+          </div>
+        </div>
+        <div class="menu-row border-t border-b border-ivory/10 py-6 flex items-baseline gap-6 cursor-pointer" data-swatch="9">
+          <span class="course-num font-display italic text-gold text-lg w-8">IX</span>
+          <div class="flex-1">
+            <h3 class="font-display text-xl md:text-2xl text-ivory">Finale</h3>
+            <p class="text-mist text-sm mt-1">Dark chocolate, smoked vanilla, gold leaf</p>
+          </div>
+        </div>
+
+        <p class="text-mist text-xs mt-8 max-w-[46ch]">
+          Dietary restrictions accommodated with 72 hours' notice. The kitchen cannot promise a substitute course will resemble the original in spirit or price.
+        </p>
+      </div>
+
+      <div class="md:col-span-5">
+        <div class="preview-panel sticky top-32 aspect-[4/5] w-full rounded-none">
+          <div class="preview-swatch is-active" data-id="1" style="background:radial-gradient(120% 100% at 30% 20%, #6b5636, #0a0908 70%)"></div>
+          <div class="preview-swatch" data-id="2" style="background:radial-gradient(120% 100% at 70% 30%, #4a5a52, #0a0908 70%)"></div>
+          <div class="preview-swatch" data-id="3" style="background:radial-gradient(120% 100% at 40% 70%, #5c3a2e, #0a0908 70%)"></div>
+          <div class="preview-swatch" data-id="4" style="background:radial-gradient(120% 100% at 60% 40%, #3c0f12, #0a0908 70%)"></div>
+          <div class="preview-swatch" data-id="5" style="background:radial-gradient(120% 100% at 50% 60%, #7a3b21, #0a0908 70%)"></div>
+          <div class="preview-swatch" data-id="6" style="background:radial-gradient(120% 100% at 30% 50%, #37506b, #0a0908 70%)"></div>
+          <div class="preview-swatch" data-id="7" style="background:radial-gradient(120% 100% at 55% 25%, #4a2e17, #0a0908 70%)"></div>
+          <div class="preview-swatch" data-id="8" style="background:radial-gradient(120% 100% at 45% 55%, #6b5b3a, #0a0908 70%)"></div>
+          <div class="preview-swatch" data-id="9" style="background:radial-gradient(120% 100% at 50% 50%, #3a2f4a, #0a0908 70%)"></div>
+          <div class="absolute bottom-8 left-8 z-10">
+            <span class="font-display italic text-ivory/90 text-lg" id="preview-label">Amuse-Bouche</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ATELIER / CHEF -->
+<section id="atelier" class="relative bg-noir py-32 md:py-48 px-6 md:px-10 overflow-hidden">
+  <div class="max-w-[1400px] mx-auto grid grid-cols-1 md:grid-cols-12 gap-14 items-center">
+    <div class="md:col-span-5">
+      <div class="relative aspect-[3/4] w-full overflow-hidden">
+        <div class="parallax-img absolute inset-0 -top-16" style="background:
+            radial-gradient(80% 60% at 30% 20%, rgba(176,141,87,0.22), transparent 60%),
+            linear-gradient(200deg, #1d1812, #0a0908 65%);"></div>
+        <div class="absolute inset-0 border border-gold/20"></div>
+      </div>
+    </div>
+    <div class="md:col-span-7">
+      <span class="block text-[12px] tracking-[0.25em] text-gold mb-4">The Kitchen</span>
+      <h2 class="font-display italic text-4xl md:text-5xl text-ivory mb-8 leading-tight">Chef Adrian Voss</h2>
+      <p class="text-ivory/75 leading-relaxed max-w-[58ch] mb-6">
+        Adrian Voss spent eleven years cooking in rooms with no windows before opening one with none by design. He does not believe a great meal should be photographed, only remembered — imperfectly, the way the best evenings always are.
+      </p>
+      <p class="text-ivory/75 leading-relaxed max-w-[58ch] mb-10">
+        Every tasting menu is written the same morning it is served, built entirely around what arrived at the back door before sunrise. There is no version of Nocturne's menu that will ever exist twice.
+      </p>
+      <p class="font-display italic text-gold text-lg">"The dish is not the point. The hour is."</p>
+    </div>
+  </div>
+</section>
+
+<!-- RESERVE -->
+<section id="reserve" class="relative bg-char py-40 md:py-56 px-6 md:px-10 border-t border-gold/10 text-center">
+  <div class="max-w-3xl mx-auto">
+    <span class="block text-[12px] tracking-[0.25em] text-gold mb-6">Reservations</span>
+    <h2 class="reserve-heading font-display italic font-light text-[9vw] md:text-6xl leading-tight text-ivory mb-8">
+      Fourteen seats. One evening. No exceptions.
+    </h2>
+    <p class="text-ivory/70 max-w-lg mx-auto mb-12">
+      Tables for the following month open on the first of each month, at midnight, and are typically gone within the hour. Join the list, and we will reach you before the room fills.
+    </p>
+    <a href="mailto:reservations@nocturne-table.com" class="btn-line font-display italic text-2xl text-ivory">Request an Introduction</a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="bg-noir px-6 md:px-10 py-16 border-t border-gold/10">
+  <div class="max-w-[1400px] mx-auto grid grid-cols-1 md:grid-cols-4 gap-10 text-sm">
+    <div>
+      <span class="font-display italic text-xl text-ivory">Nocturne</span>
+      <p class="text-mist mt-4 leading-relaxed">19 Ashgrove Mews<br/>Lower Marsh District<br/>Open Tuesday – Saturday</p>
+    </div>
+    <div>
+      <span class="block text-[12px] tracking-[0.2em] text-gold mb-4">Hours</span>
+      <p class="text-mist leading-relaxed">One seating nightly<br/>8:00 PM, doors close at 8:15</p>
+    </div>
+    <div>
+      <span class="block text-[12px] tracking-[0.2em] text-gold mb-4">Contact</span>
+      <p class="text-mist leading-relaxed">reservations@nocturne-table.com<br/>Enquiries by email only</p>
+    </div>
+    <div>
+      <span class="block text-[12px] tracking-[0.2em] text-gold mb-4">Notes</span>
+      <p class="text-mist leading-relaxed">No photography inside the room.<br/>Smart attire, dark tones preferred.</p>
+    </div>
+  </div>
+  <div class="max-w-[1400px] mx-auto mt-16 pt-8 border-t border-ivory/10 flex flex-col md:flex-row justify-between gap-4 text-xs text-mist">
+    <span>© <span id="year"></span> Nocturne. All rights reserved.</span>
+    <span>Composed, not served.</span>
+  </div>
+</footer>
+
+<script>
+document.getElementById('year').textContent = new Date().getFullYear();
+
+/* ============================================================
+   SETUP
+============================================================ */
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const isCoarsePointer = window.matchMedia('(pointer:coarse)').matches;
+const isMobile = window.matchMedia('(max-width:768px)').matches || isCoarsePointer;
+
+gsap.registerPlugin(ScrollTrigger);
+
+/* ============================================================
+   CUSTOM CURSOR
+============================================================ */
+if(!isCoarsePointer){
+  const dot = document.getElementById('cursor-dot');
+  const ring = document.getElementById('cursor-ring');
+  const dotX = gsap.quickTo(dot, "x", { duration: 0.12, ease: "power3" });
+  const dotY = gsap.quickTo(dot, "y", { duration: 0.12, ease: "power3" });
+  const ringX = gsap.quickTo(ring, "x", { duration: 0.45, ease: "power3" });
+  const ringY = gsap.quickTo(ring, "y", { duration: 0.45, ease: "power3" });
+
+  window.addEventListener('mousemove', (e) => {
+    dotX(e.clientX); dotY(e.clientY);
+    ringX(e.clientX); ringY(e.clientY);
+  });
+
+  document.querySelectorAll('a, button, .menu-row, .cursor-hover').forEach(el => {
+    el.addEventListener('mouseenter', () => ring.classList.add('is-active'));
+    el.addEventListener('mouseleave', () => ring.classList.remove('is-active'));
+  });
+}
+
+/* ============================================================
+   PRELOADER
+============================================================ */
+const preTl = gsap.timeline({
+  onComplete: () => {
+    document.getElementById('preloader').style.display = 'none';
+    playHeroIntro();
+  }
+});
+preTl.to('#pre-bar-fill', { width: '100%', duration: 1.3, ease: 'power2.inOut' })
+     .to('.pre-word', { opacity: 0, duration: 0.4 }, '+=0.1')
+     .to('#pre-curtain', { yPercent: -100, duration: 0.9, ease: 'power4.inOut' }, '-=0.1')
+     .set('#preloader', { pointerEvents: 'none' });
+
+function playHeroIntro(){
+  const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+  tl.to('.char', {
+      yPercent: 0, opacity: 1, duration: 1.1, stagger: 0.05,
+    }, 0)
+    .to('.hero-kicker', { opacity: 1, y: 0, duration: 0.8 }, 0.2)
+    .to('.hero-sub', { opacity: 1, y: 0, duration: 0.8 }, 0.6)
+    .to('.hero-scroll', { opacity: 1, duration: 0.8 }, 1.0);
+}
+gsap.set('.char', { yPercent: 120, opacity: 0 });
+
+/* ============================================================
+   MARQUEE (infinite loop)
+============================================================ */
+(function marquee(){
+  const track = document.getElementById('marquee-track');
+  if(!track) return;
+  const totalWidth = track.scrollWidth / 2;
+  gsap.to(track, {
+    x: -totalWidth,
+    duration: isMobile ? 22 : 32,
+    ease: 'none',
+    repeat: -1,
+  });
+})();
+
+/* ============================================================
+   PHILOSOPHY — line mask reveal
+============================================================ */
+gsap.utils.toArray('.line-inner').forEach((line, i) => {
+  gsap.to(line, {
+    yPercent: 0,
+    duration: 1,
+    ease: 'power4.out',
+    delay: i * 0.06,
+    scrollTrigger: {
+      trigger: line,
+      start: 'top 88%',
+      toggleActions: 'play none none none',
+    }
+  });
+});
+
+/* ============================================================
+   MENU — spotlight sweep reveal + hover preview panel
+============================================================ */
+gsap.utils.toArray('.menu-row').forEach((row, i) => {
+  ScrollTrigger.create({
+    trigger: row,
+    start: 'top 92%',
+    onEnter: () => row.classList.add('is-open'),
+    once: true,
+  });
+});
+
+const swatches = document.querySelectorAll('.preview-swatch');
+const previewLabel = document.getElementById('preview-label');
+const dishNames = {
+  1: 'Amuse-Bouche', 2: 'Prologue', 3: 'The Turn', 4: 'Depth', 5: 'Ember',
+  6: 'Origin', 7: 'Coda', 8: 'Interlude', 9: 'Finale'
+};
+
+document.querySelectorAll('.menu-row').forEach(row => {
+  row.addEventListener('mouseenter', () => {
+    const id = row.getAttribute('data-swatch');
+    swatches.forEach(s => s.classList.toggle('is-active', s.getAttribute('data-id') === id));
+    previewLabel.textContent = dishNames[id] || '';
+  });
+});
+
+/* ============================================================
+   ATELIER — parallax portrait
+============================================================ */
+if(!reduceMotion){
+  gsap.to('.parallax-img', {
+    yPercent: 12,
+    ease: 'none',
+    scrollTrigger: {
+      trigger: '#atelier',
+      start: 'top bottom',
+      end: 'bottom top',
+      scrub: true,
+    }
+  });
+}
+
+/* ============================================================
+   RESERVE — single entrance moment
+============================================================ */
+gsap.from('.reserve-heading', {
+  opacity: 0,
+  y: 24,
+  duration: 1.1,
+  ease: 'power3.out',
+  scrollTrigger: {
+    trigger: '#reserve',
+    start: 'top 75%',
+  }
+});
+
+/* ============================================================
+   THREE.JS — liquid particle field
+============================================================ */
+(function initScene(){
+  const canvas = document.getElementById('hero-canvas');
+  if(!canvas || !window.THREE) return;
+
+  const heroSection = document.getElementById('hero');
+  let width = heroSection.clientWidth;
+  let height = heroSection.clientHeight;
+
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false });
+  const pixelRatio = isMobile ? 1 : Math.min(window.devicePixelRatio || 1, 2);
+  renderer.setPixelRatio(pixelRatio);
+  renderer.setSize(width, height);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(55, width / height, 0.1, 100);
+  camera.position.z = 9;
+
+  const PARTICLE_COUNT = isMobile ? 700 : 3600;
+  const positions = new Float32Array(PARTICLE_COUNT * 3);
+  const scales = new Float32Array(PARTICLE_COUNT);
+
+  for(let i = 0; i < PARTICLE_COUNT; i++){
+    const u = Math.random();
+    const v = Math.random();
+    const theta = 2 * Math.PI * u;
+    const phi = Math.acos(2 * v - 1);
+    const r = 7.2 * Math.cbrt(Math.random());
+    const x = r * Math.sin(phi) * Math.cos(theta);
+    const y = r * Math.sin(phi) * Math.sin(theta) * 0.7;
+    const z = r * Math.cos(phi);
+    positions[i * 3] = x;
+    positions[i * 3 + 1] = y;
+    positions[i * 3 + 2] = z;
+    scales[i] = Math.random() * 2.4 + 0.6;
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('aScale', new THREE.BufferAttribute(scales, 1));
+
+  const uniforms = {
+    uTime: { value: 0 },
+    uPixelRatio: { value: pixelRatio },
+    uColorA: { value: new THREE.Color(0x2a2016) },
+    uColorB: { value: new THREE.Color(0xddc191) },
+  };
+
+  const material = new THREE.ShaderMaterial({
+    uniforms,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    vertexShader: `
+      uniform float uTime;
+      uniform float uPixelRatio;
+      attribute float aScale;
+      varying float vAlpha;
+
+      void main(){
+        vec3 pos = position;
+        float n = sin(pos.x * 0.45 + uTime * 0.25) * cos(pos.y * 0.4 + uTime * 0.18) * 0.65
+                + sin(pos.z * 0.35 - uTime * 0.22) * 0.45;
+        vec3 dir = normalize(pos + 0.0001);
+        pos += dir * n * 0.55;
+
+        vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+        gl_PointSize = aScale * uPixelRatio * (280.0 / -mvPosition.z);
+        vAlpha = smoothstep(13.5, 3.0, -mvPosition.z);
+        gl_Position = projectionMatrix * mvPosition;
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 uColorA;
+      uniform vec3 uColorB;
+      varying float vAlpha;
+
+      void main(){
+        float d = length(gl_PointCoord - vec2(0.5));
+        float strength = smoothstep(0.5, 0.0, d);
+        vec3 color = mix(uColorA, uColorB, vAlpha);
+        gl_FragColor = vec4(color, strength * vAlpha * 0.85);
+      }
+    `,
+  });
+
+  const points = new THREE.Points(geometry, material);
+  scene.add(points);
+
+  const clock = new THREE.Clock();
+  const mouse = { x: 0, y: 0 };
+  const targetRot = { x: 0, y: 0 };
+
+  window.addEventListener('mousemove', (e) => {
+    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = (e.clientY / window.innerHeight) * 2 - 1;
+  });
+
+  let visible = true;
+  let tabVisible = true;
+  let rafId = null;
+
+  const io = new IntersectionObserver((entries) => {
+    visible = entries[0].isIntersecting;
+    if(visible && tabVisible) startLoop(); else stopLoop();
+  }, { threshold: 0.05 });
+  io.observe(heroSection);
+
+  document.addEventListener('visibilitychange', () => {
+    tabVisible = document.visibilityState === 'visible';
+    if(visible && tabVisible) startLoop(); else stopLoop();
+  });
+
+  function animate(){
+    rafId = requestAnimationFrame(animate);
+    const dt = clock.getDelta();
+    uniforms.uTime.value += dt;
+
+    if(!isCoarsePointer && !reduceMotion){
+      targetRot.x += (mouse.y * 0.15 - targetRot.x) * 0.03;
+      targetRot.y += (mouse.x * 0.2 - targetRot.y) * 0.03;
+    }
+    points.rotation.x = targetRot.x + Math.sin(uniforms.uTime.value * 0.05) * 0.05;
+    points.rotation.y += 0.0009;
+    points.rotation.y += targetRot.y * 0.001;
+
+    renderer.render(scene, camera);
+  }
+
+  function startLoop(){ if(rafId === null) animate(); }
+  function stopLoop(){ if(rafId !== null){ cancelAnimationFrame(rafId); rafId = null; } }
+
+  startLoop();
+
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      width = heroSection.clientWidth;
+      height = heroSection.clientHeight;
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+    }, 150);
+  });
+})();
+</script>
+</body>
+</html>
